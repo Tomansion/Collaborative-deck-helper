@@ -1,39 +1,38 @@
 # Les Cinq Rois — Collaborative Deck Helper
 
-Une petite application web pour préparer, à plusieurs, un jeu de cartes
-personnalisé (inspiré du jeu des **Cinq Rois** / *Five Crowns* : 55 cartes de
-3 à Roi dans 5 couleurs, plus 6 jokers) destiné à être imprimé et offert en
-cadeau.
+A small web app for preparing a personalized deck of cards together,
+inspired by the **Cinq Rois** / *Five Crowns* game (55 cards from 3 to King
+in 5 colors, plus 6 jokers), meant to be printed and given as a gift.
 
-Chaque carte a une image et une description, modifiables par n'importe qui :
-le deck est partagé, les changements se propagent en direct à tous les
-navigateurs connectés (WebSocket), l'historique des images d'une carte est
-conservé (on peut revenir en arrière), et tout l'historique des modifications
-est consultable. Une fois le deck prêt, on télécharge un zip avec, pour
-chaque carte, la photo choisie fusionnée avec l'habillage coloré de sa
-couleur/valeur, prêt à imprimer.
+Each card has an image and a description, editable by anyone: the deck is
+shared, changes propagate live to every connected browser (WebSocket), a
+card's image history is kept (you can revert to a previous one), and the
+full change history is browsable. Once the deck is ready, download a zip
+with, for each card, the chosen photo merged with its color/value overlay,
+ready to print.
 
-Voir [`Spec.md`](Spec.md) pour la spécification complète.
+See [`Spec.md`](Spec.md) for the full specification. The app's UI and all
+card content are in French (per the spec); this README is in English.
 
 ## Architecture
 
-- **Backend** : FastAPI + SQLAlchemy + SQLite (`backend/`). Sert aussi
-  l'API WebSocket (`/ws/deck`) utilisée pour la synchronisation temps réel,
-  et génère les habillages colorés des cartes avec Pillow.
-- **Frontend** : Vue 3 (Options API) + Vite (`frontend/`).
-- **Images** : enregistrées sur disque (dossier `uploads/`), leur chemin est
-  stocké en base ; l'image "courante" d'une carte et son historique sont
-  tous deux conservés.
-- **Descriptions par défaut** : [`default_description.md`](default_description.md)
-  pré-remplit la description de chaque carte au premier démarrage (une
-  description déjà modifiée depuis l'app n'est jamais écrasée). Ce fichier
-  est généré depuis [`Default_descriptions.ods`](Default_descriptions.ods)
-  (plus pratique à éditer à plusieurs) via
-  `python3 scripts/ods_to_default_descriptions.py`.
+- **Backend**: FastAPI + SQLAlchemy + SQLite (`backend/`). Also serves the
+  WebSocket API (`/ws/deck`) used for realtime sync, and generates the
+  colored card overlays with Pillow.
+- **Frontend**: Vue 3 (Options API) + Vite (`frontend/`).
+- **Images**: stored on disk (`uploads/` folder), their path stored in the
+  DB; a card's "current" image and its full history are both kept.
+- **Default descriptions**: [`default_description.md`](default_description.md)
+  pre-fills every card's description on first boot (a description already
+  edited from the app is never overwritten). It's the source of truth and
+  can be edited directly. It was originally filled in from a spreadsheet
+  (`Default_descriptions.ods`, handier for editing with several people) via
+  `scripts/ods_to_default_descriptions.py` — kept around in case that
+  workflow is useful again, but not required to edit the file.
 
-## Développement
+## Development
 
-Prérequis : Python 3.10+, Node 20+.
+Prerequisites: Python 3.10+, Node 20+.
 
 ### Backend
 
@@ -45,13 +44,13 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
 
-L'API écoute sur `http://localhost:8000` (`/api/...`, `/ws/deck`). La base
-SQLite et les images uploadées sont stockées dans `backend/data/` (créé
-automatiquement, ignoré par git).
+The API listens on `http://localhost:8000` (`/api/...`, `/ws/deck`). The
+SQLite database and uploaded images are stored in `backend/data/` (created
+automatically, git-ignored).
 
 ### Frontend
 
-Dans un second terminal :
+In a second terminal:
 
 ```bash
 cd frontend
@@ -59,61 +58,59 @@ npm install
 npm run dev
 ```
 
-L'app est servie sur `http://localhost:5173` ; le serveur de dev Vite
-redirige `/api`, `/uploads` et `/ws` vers le backend sur le port 8000 (voir
-`frontend/vite.config.js`). Ouvrez `http://localhost:5173`.
+The app is served on `http://localhost:5173`; the Vite dev server proxies
+`/api`, `/uploads` and `/ws` to the backend on port 8000 (see
+`frontend/vite.config.js`). Open `http://localhost:5173`.
 
-### Mettre à jour les descriptions par défaut
+### Updating the default descriptions
 
-Après avoir modifié `Default_descriptions.ods` :
+Just edit `default_description.md` directly (format: a markdown table, one
+row per value, one column per suit, plus a `## Jokers` section). The backend
+applies these defaults on every startup, only to cards whose description
+has never been edited from the app.
 
-```bash
-python3 scripts/ods_to_default_descriptions.py
-```
-
-Cela régénère `default_description.md`. Le backend applique ensuite ces
-valeurs par défaut à chaque démarrage, uniquement sur les cartes dont la
-description n'a encore jamais été modifiée depuis l'application.
+If you'd rather work from a spreadsheet (handy for editing with several
+people), `python3 scripts/ods_to_default_descriptions.py [file.ods]`
+regenerates `default_description.md` from an `.ods` file with the same
+shape (one column per suit, one row per value).
 
 ## Production (Docker)
 
-Un unique `Dockerfile` multi-étapes construit le frontend puis l'embarque
-dans l'image du backend, qui sert à la fois l'API et les fichiers statiques
-du frontend.
+A single multi-stage `Dockerfile` builds the frontend and bundles it into
+the backend image, which serves both the API and the frontend's static
+files.
 
 ```bash
 docker compose up --build
 ```
 
-ou, sans compose :
+or, without compose:
 
 ```bash
 docker build -t deck-helper .
 docker run -d -p 8000:8000 -v deck_data:/data --name deck-helper deck-helper
 ```
 
-L'application est alors disponible sur `http://localhost:8000`. Le volume
-`/data` contient la base SQLite et les images uploadées : il doit être
-persisté (volume nommé ou bind mount) pour ne pas perdre le deck entre deux
-déploiements.
+The app is then available on `http://localhost:8000`. The `/data` volume
+holds the SQLite database and uploaded images: it must be persisted (named
+volume or bind mount) so the deck isn't lost between deployments.
 
-### Variables d'environnement (optionnelles)
+### Environment variables (optional)
 
-| Variable                     | Par défaut                          | Usage                                   |
-|-------------------------------|--------------------------------------|------------------------------------------|
-| `DECK_DATA_DIR`               | `/data` (Docker) / `backend/data`    | Dossier de la base SQLite + des images   |
-| `DECK_DEFAULT_DESCRIPTIONS`   | `/app/default_description.md`        | Chemin du fichier de descriptions par défaut |
-| `DECK_FRONTEND_DIST`          | `/app/frontend_dist`                 | Dossier du build frontend à servir       |
+| Variable                     | Default                              | Purpose                                   |
+|-------------------------------|--------------------------------------|--------------------------------------------|
+| `DECK_DATA_DIR`               | `/data` (Docker) / `backend/data`    | Folder for the SQLite DB + images          |
+| `DECK_DEFAULT_DESCRIPTIONS`   | `/app/default_description.md`        | Path to the default-descriptions file      |
+| `DECK_FRONTEND_DIST`          | `/app/frontend_dist`                 | Folder of the built frontend to serve      |
 
-## Structure du dépôt
+## Repository structure
 
 ```
-backend/            API FastAPI (modèles, routes, génération des overlays)
-frontend/            App Vue 3 (Options API)
-scripts/              Utilitaires de dev (conversion .ods -> .md)
-reference-images/    Visuels de référence pour le rendu des cartes
-Spec.md               Spécification de l'application
-default_description.md       Descriptions par défaut (généré, voir ci-dessus)
-Default_descriptions.ods     Source éditable des descriptions par défaut
-Dockerfile, docker-compose.yml   Build/déploiement en production
+backend/            FastAPI API (models, routes, overlay generation)
+frontend/            Vue 3 app (Options API)
+scripts/              Dev utilities (.ods -> .md conversion, optional)
+reference-images/    Reference visuals for the card rendering
+Spec.md               Application specification
+default_description.md       Default descriptions (edit directly)
+Dockerfile, docker-compose.yml   Production build/deployment
 ```
