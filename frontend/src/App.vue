@@ -2,6 +2,8 @@
   <div class="app">
     <AppHeader
       :connected="store.wsConnected"
+      :photo-count="photoCount"
+      :card-count="store.cards.length"
       @show-history="showHistory = true"
       @download="downloadZip"
     />
@@ -41,6 +43,11 @@ export default {
       showHistory: false,
     }
   },
+  computed: {
+    photoCount() {
+      return this.store.cards.filter((c) => c.current_image).length
+    },
+  },
   created() {
     loadDeck()
     loadHistory()
@@ -51,6 +58,14 @@ export default {
       this.selectedCardId = card.id
     },
     downloadZip() {
+      const missing = this.store.cards.length - this.photoCount
+      if (missing > 0) {
+        const proceed = window.confirm(
+          `${missing} carte(s) n'ont pas encore de photo : elles seront absentes du zip ` +
+            `(les autres seront téléchargées normalement). Continuer ?`,
+        )
+        if (!proceed) return
+      }
       window.location.href = api.exportZipUrl()
     },
   },

@@ -45,6 +45,9 @@
         <span class="ws-indicator__dot"></span>
         {{ connected ? 'Connecté en direct' : 'Connexion…' }}
       </span>
+      <span v-if="cardCount" class="progress-indicator">
+        {{ photoCount }} / {{ cardCount }} cartes avec photo
+      </span>
       <button class="btn btn--ghost" type="button" @click="$emit('show-history')">
         Historique
       </button>
@@ -60,6 +63,8 @@ export default {
   name: 'AppHeader',
   props: {
     connected: { type: Boolean, default: false },
+    photoCount: { type: Number, default: 0 },
+    cardCount: { type: Number, default: 0 },
   },
   emits: ['show-history', 'download'],
 }
