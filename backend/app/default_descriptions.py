@@ -75,17 +75,19 @@ def parse_default_descriptions(path: Path) -> tuple[dict[tuple[str, str], str], 
             header_suits = None
             continue
 
+        if in_jokers_section:
+            # Jokers are a plain markdown list ("1. text"), not a table
+            # row, so this must be handled before the "|" check below.
+            joker_index += 1
+            text = re.sub(r"^(\d+[.)]|[-*])\s*", "", line).strip()
+            if text:
+                by_joker[joker_index] = text
+            continue
+
         if not line.startswith("|"):
             continue
 
         cells = [c.strip() for c in line.strip("|").split("|")]
-
-        if in_jokers_section:
-            joker_index += 1
-            text = cells[-1] if cells else ""
-            if text and not set(text) <= {"-"}:
-                by_joker[joker_index] = text
-            continue
 
         if header_suits is None:
             # First table row encountered is the header.
