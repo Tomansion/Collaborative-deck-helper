@@ -7,15 +7,25 @@ single source of truth for the "card look", used both for the live preview
 in the browser (served as a cached PNG, stacked over the photo with CSS)
 and for the composited export (uploaded photo + overlay merged for the zip
 download, see routers/export.py which also handles the photo's 50% opacity
-blend onto white before this overlay is composited on top).
+blend onto white, resized to fit *inside* the border, before this overlay
+is composited on top).
+
+The border is drawn as a plain (square-cornered) rectangle on purpose: the
+browser rounds the displayed corners via CSS (`border-radius` on the shared
+container both the photo and this overlay sit in), so there is exactly one
+source of corner-rounding and the two layers can never mismatch. A raster
+with its own rounded corners baked in previously caused a sliver of photo
+to leak past the (differently-rounded) CSS clip at the corners. Square
+corners are also simply correct for the print file, which is meant to be
+cut to an exact rectangle (70 x 121mm).
 
 Algorithm (deterministic function of suit + value):
-  - White rounded-rect frame border around the whole card.
+  - White rectangular frame border around the whole card.
   - Corner badges (top-left, and bottom-right rotated 180°) showing the
     rank/value and the suit symbol, colored with the suit's own color.
-  - Jokers: same treatment, with "J1".."J6" as the rank label (so they
-    stay readable instead of looking like a stray "Star" number) and a
-    color cycling per joker so the 6 are visually distinguishable.
+  - Jokers: same treatment, but the corner badge spells out "JOKER" as
+    stacked letters (one per line, top to bottom) instead of a rank, with
+    a color cycling per joker so the 6 are visually distinguishable.
 """
 from __future__ import annotations
 
@@ -35,6 +45,12 @@ CARD_RATIO = PRINT_SIZE_PX[0] / PRINT_SIZE_PX[1]  # width / height
 # Default size for the live-preview overlay served to the browser: same
 # 11:19 ratio as the print size, smaller for fast loading.
 PREVIEW_SIZE_PX = (550, 950)
+
+# Border thickness as a fraction of the card width, applied uniformly (in
+# raw pixels) to all 4 sides. The frontend CSS hardcodes the same ratio
+# (see CardTile.vue / style.css) to inset the photo to fit inside it --
+# keep both in sync if this changes.
+BORDER_RATIO = 0.13
 
 _FONT_CANDIDATES = [
     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
@@ -59,41 +75,48 @@ def _hls_to_rgb(h: float, l: float, s: float) -> tuple[int, int, int]:
     return int(r * 255), int(g * 255), int(b * 255)
 
 
+def border_width_px(width: int) -> int:
+    """The border's pixel thickness for a card rendered at this width --
+    shared by render_overlay() and the export compositor so the photo's
+    inset always lines up exactly with where the border is drawn."""
+    return max(6, int(width * BORDER_RATIO))
+
+
 # Red, gold, green, cyan, blue, magenta -- cycled so the 6 jokers are each
-# visually distinguishable from one another (and from the gold "Star" suit).
+# visually distinguishable from one another.
 JOKER_HUES = [0.0, 0.13, 0.33, 0.5, 0.66, 0.83]
 
 
 def card_style(suit_code: str | None, value: str, joker_index: int | None = None) -> dict:
-    """Deterministic style for a given card: just a label/symbol/color --
-    no wash, no court-card embellishments. The value's own text already
-    conveys the rank; the color conveys the suit."""
+    """Deterministic style for a given card: the corner badge's text
+    line(s) and color -- no wash, no court-card embellishments. The
+    value's own text already conveys the rank; the color conveys the
+    suit."""
     if value == deck.JOKER_VALUE:
         hue = JOKER_HUES[((joker_index or 1) - 1) % len(JOKER_HUES)]
         return {
-            "label": f"J{joker_index or 1}",
-            "symbol": "★",
+            "is_joker": True,
+            "lines": list("JOKER"),  # stacked, one letter per line
             "color": _hls_to_rgb(hue, 0.46, 0.85),
         }
 
     suit = deck.SUITS_BY_CODE[suit_code]
     return {
-        "label": value,
-        "symbol": suit.symbol,
+        "is_joker": False,
+        "lines": [value, suit.symbol],  # rank, then suit symbol below it
         "color": _hex_to_rgb(suit.color),
     }
 
 
-def _draw_corner_badge(draw: ImageDraw.ImageDraw, xy: tuple[int, int], label: str, symbol: str, color: tuple[int, int, int], font_label, font_symbol) -> None:
+def _draw_corner_badge(draw: ImageDraw.ImageDraw, xy: tuple[int, int], lines: list[tuple[str, ImageFont.FreeTypeFont]], color: tuple[int, int, int], halo_radius: int) -> None:
     x, y = xy
-    # White halo behind the colored text so it stays legible over any photo.
     halo = (255, 255, 255, 235)
-    for text, font, ty in ((label, font_label, y), (symbol, font_symbol, y + font_label.size + 2)):
-        for dx in (-2, -1, 0, 1, 2):
-            for dy in (-2, -1, 0, 1, 2):
-                if dx or dy:
-                    draw.text((x + dx, ty + dy), text, font=font, fill=halo)
-        draw.text((x, ty), text, font=font, fill=color + (255,))
+    ty = y
+    for text, font in lines:
+        # Pillow's native stroke draws a clean, efficient outline behind
+        # the glyph so the colored text stays legible over any photo.
+        draw.text((x, ty), text, font=font, fill=color + (255,), stroke_width=halo_radius, stroke_fill=halo)
+        ty += font.size + 2
 
 
 def render_overlay(suit_code: str | None, value: str, joker_index: int | None = None, size: tuple[int, int] = PREVIEW_SIZE_PX) -> Image.Image:
@@ -104,31 +127,36 @@ def render_overlay(suit_code: str | None, value: str, joker_index: int | None = 
     img = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
-    radius = int(width * 0.045)
-    border_width = max(4, int(width * 0.065))
+    border_width = border_width_px(width)
 
-    # Thick white frame border -- the whole "overlayed color" wash is gone;
-    # only this border and the corner badges remain.
-    draw.rounded_rectangle(
-        [(border_width // 2, border_width // 2), (width - 1 - border_width // 2, height - 1 - border_width // 2)],
-        radius=radius,
+    # Thick white frame border, square corners (see module docstring for
+    # why) -- the whole "overlayed color" wash is gone; only this border
+    # and the corner badges remain.
+    draw.rectangle(
+        [(0, 0), (width - 1, height - 1)],
         outline=(255, 255, 255, 255),
         width=border_width,
     )
 
-    # Corner badges (rank/symbol), top-left and bottom-right (rotated),
-    # inset enough to sit inside the white frame rather than under it.
-    label_size = int(width * 0.13)
-    symbol_size = int(width * 0.10)
-    font_label = _find_font(label_size)
-    font_symbol = _find_font(symbol_size)
+    # Corner badges (rank/symbol, or "JOKER" spelled vertically), top-left
+    # and bottom-right (rotated), inset to sit inside the white frame.
     margin = border_width + int(width * 0.02)
+    halo_radius = max(2, int(width * 0.014))  # 2x the original fixed radius
 
-    _draw_corner_badge(draw, (margin, margin), style["label"], style["symbol"], style["color"], font_label, font_symbol)
+    if style["is_joker"]:
+        letter_font = _find_font(int(width * 0.095))
+        lines = [(ch, letter_font) for ch in style["lines"]]
+    else:
+        label_font = _find_font(int(width * 0.13))
+        symbol_font = _find_font(int(width * 0.10))
+        value_text, symbol_text = style["lines"]
+        lines = [(value_text, label_font), (symbol_text, symbol_font)]
+
+    _draw_corner_badge(draw, (margin, margin), lines, style["color"], halo_radius)
 
     badge_layer = Image.new("RGBA", (width, height), (0, 0, 0, 0))
     badge_draw = ImageDraw.Draw(badge_layer)
-    _draw_corner_badge(badge_draw, (margin, margin), style["label"], style["symbol"], style["color"], font_label, font_symbol)
+    _draw_corner_badge(badge_draw, (margin, margin), lines, style["color"], halo_radius)
     badge_layer = badge_layer.rotate(180)
     img = Image.alpha_composite(img, badge_layer)
 

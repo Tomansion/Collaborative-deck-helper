@@ -48,30 +48,46 @@ def _fade_onto_white(photo_rgb: PILImage.Image, opacity: float = 0.5) -> PILImag
     return PILImage.blend(white, photo_rgb, opacity)
 
 
+def _get_overlay(card: Card, size: tuple[int, int]) -> PILImage.Image:
+    # Routed through the (suit, value, joker_index, size)-keyed cache --
+    # there are only 61 distinct overlays, so a repeat zip download is
+    # effectively free after the first one.
+    png_bytes = overlay.get_overlay_png_bytes(card.suit, card.value, card.joker_index, size=size)
+    return PILImage.open(io.BytesIO(png_bytes)).convert("RGBA")
+
+
 def build_card_image(card: Card, size: tuple[int, int] = EXPORT_SIZE) -> PILImage.Image | None:
-    """Composite the card's chosen photo (faded to 50% opacity onto white)
-    with its overlay. Returns None if the card has no chosen photo (caller
-    decides whether to skip it or fall back to a placeholder background)."""
+    """Composite the card's chosen photo (faded to 50% opacity onto white,
+    resized to fit *inside* the white border rather than full-bleed under
+    it) with its overlay. Returns None if the card has no chosen photo
+    (caller decides whether to skip it or fall back to a placeholder
+    background)."""
     current = card.current_image
-    base: PILImage.Image
-    if current is not None:
-        photo_path = config.UPLOADS_DIR / current.filename
-        if not photo_path.exists():
-            return None
-        with PILImage.open(photo_path) as src:
-            photo = _cover_resize(src.convert("RGB"), size)
-        base = _fade_onto_white(photo).convert("RGBA")
-    else:
+    if current is None:
+        return None
+    photo_path = config.UPLOADS_DIR / current.filename
+    if not photo_path.exists():
         return None
 
-    overlay_img = overlay.render_overlay(card.suit, card.value, card.joker_index, size=size)
+    width, height = size
+    border = overlay.border_width_px(width)
+    inner_size = (width - 2 * border, height - 2 * border)
+
+    with PILImage.open(photo_path) as src:
+        photo = _cover_resize(src.convert("RGB"), inner_size)
+    faded = _fade_onto_white(photo)
+
+    base = PILImage.new("RGBA", size, (255, 255, 255, 255))
+    base.paste(faded, (border, border))
+
+    overlay_img = _get_overlay(card, size)
     composited = PILImage.alpha_composite(base, overlay_img)
     return composited.convert("RGB")
 
 
 def build_placeholder_image(card: Card, size: tuple[int, int] = EXPORT_SIZE) -> PILImage.Image:
     base = PILImage.new("RGBA", size, PLACEHOLDER_RGB + (255,))
-    overlay_img = overlay.render_overlay(card.suit, card.value, card.joker_index, size=size)
+    overlay_img = _get_overlay(card, size)
     composited = PILImage.alpha_composite(base, overlay_img)
     return composited.convert("RGB")
 
