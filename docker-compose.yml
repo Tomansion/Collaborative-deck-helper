@@ -1,0 +1,11 @@
+services:
+  deck-helper:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - deck_data:/data
+    restart: unless-stopped
+
+volumes:
+  deck_data:

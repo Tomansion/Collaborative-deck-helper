@@ -1,0 +1,9 @@
+.git
+backend/data
+backend/__pycache__
+backend/**/__pycache__
+frontend/node_modules
+frontend/dist
+reference-images
+*.ods
+.~lock.*#
