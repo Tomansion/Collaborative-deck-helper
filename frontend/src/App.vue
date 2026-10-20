@@ -14,6 +14,7 @@
       <CardGrid
         v-else
         :suits="store.suits"
+        :values="store.values"
         :cards="store.cards"
         @open-card="openCard"
       />

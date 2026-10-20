@@ -203,6 +203,63 @@ button {
   gap: 1rem;
 }
 
+.card-group--jokers {
+  margin-top: 1rem;
+}
+
+/* Cards laid out as a table: one row per value (3 -> R, top to bottom),
+   one column per suit. Scrolls horizontally on narrow screens rather than
+   wrapping, so a row always stays a row. */
+.card-table__scroll {
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+}
+
+.card-table__header,
+.card-table__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.card-table__header {
+  align-items: flex-end;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--border);
+}
+
+.card-table__row {
+  margin-bottom: 1.25rem;
+}
+
+.card-table__row-label {
+  flex: none;
+  width: 2.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Playfair Display', Georgia, serif;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--muted);
+}
+
+.card-table__header-cell {
+  flex: none;
+  width: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  font-weight: 600;
+  color: var(--suit-color, var(--ink));
+}
+
+.card-table__header-symbol {
+  font-size: 1.05rem;
+}
+
 .card-tile {
   all: unset;
   cursor: pointer;
@@ -228,10 +285,10 @@ button {
   position: relative;
   display: block;
   width: 140px;
-  height: 196px;
+  height: 242px; /* 11:19 ratio, matches the 2.75in x 4.75in @300dpi print size */
   border-radius: var(--radius-md);
   overflow: hidden;
-  background: var(--surface);
+  background: #fff;
   box-shadow: var(--shadow);
 }
 
@@ -241,6 +298,7 @@ button {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  opacity: 0.5;
 }
 
 .card-tile__placeholder {
@@ -351,12 +409,12 @@ button {
 .modal__preview {
   position: relative;
   width: 110px;
-  height: 154px;
+  height: 190px; /* 11:19 ratio, matches the 2.75in x 4.75in @300dpi print size */
   flex: none;
   border-radius: var(--radius-md);
   overflow: hidden;
   box-shadow: var(--shadow);
-  background: var(--surface-alt);
+  background: #fff;
 }
 
 .modal__preview-photo {
@@ -365,6 +423,7 @@ button {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  opacity: 0.5;
 }
 
 .modal__preview-placeholder {
@@ -542,11 +601,12 @@ button {
     order: -1;
   }
   .card-tile,
-  .card-tile__frame {
+  .card-tile__frame,
+  .card-table__header-cell {
     width: 120px;
   }
   .card-tile__frame {
-    height: 168px;
+    height: 207px; /* 11:19 ratio */
   }
   .modal {
     padding: 1.5rem;
