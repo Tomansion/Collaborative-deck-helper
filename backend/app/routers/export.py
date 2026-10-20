@@ -18,8 +18,9 @@ from ..models import Card
 
 router = APIRouter(prefix="/api", tags=["export"])
 
-EXPORT_SIZE = (1500, 2100)  # ~300dpi at poker card proportions, good for printing
-PLACEHOLDER_RGB = (235, 231, 221)  # warm off-white "blank card" background
+# Exact print size: 2.75in x 4.75in (~70 x 121mm) at 300dpi -- see overlay.py.
+EXPORT_SIZE = overlay.PRINT_SIZE_PX
+PLACEHOLDER_RGB = (255, 255, 255)  # matches the overlay's white frame
 
 
 def _slugify(text: str) -> str:
@@ -40,10 +41,17 @@ def _cover_resize(img: PILImage.Image, size: tuple[int, int]) -> PILImage.Image:
     return img.crop((left, top, left + target_w, top + target_h))
 
 
+def _fade_onto_white(photo_rgb: PILImage.Image, opacity: float = 0.5) -> PILImage.Image:
+    """Blend a photo at the given opacity onto a solid white background,
+    so it reads as "faded" rather than tinted by a color wash."""
+    white = PILImage.new("RGB", photo_rgb.size, (255, 255, 255))
+    return PILImage.blend(white, photo_rgb, opacity)
+
+
 def build_card_image(card: Card, size: tuple[int, int] = EXPORT_SIZE) -> PILImage.Image | None:
-    """Composite the card's chosen photo with its overlay. Returns None if
-    the card has no chosen photo (caller decides whether to skip it or
-    fall back to a placeholder background)."""
+    """Composite the card's chosen photo (faded to 50% opacity onto white)
+    with its overlay. Returns None if the card has no chosen photo (caller
+    decides whether to skip it or fall back to a placeholder background)."""
     current = card.current_image
     base: PILImage.Image
     if current is not None:
@@ -51,7 +59,8 @@ def build_card_image(card: Card, size: tuple[int, int] = EXPORT_SIZE) -> PILImag
         if not photo_path.exists():
             return None
         with PILImage.open(photo_path) as src:
-            base = _cover_resize(src.convert("RGB"), size).convert("RGBA")
+            photo = _cover_resize(src.convert("RGB"), size)
+        base = _fade_onto_white(photo).convert("RGBA")
     else:
         return None
 
@@ -85,7 +94,7 @@ def export_zip(include_missing: bool = False, db: Session = Depends(get_db)) -> 
             suit_part = card.suit or f"joker-{card.joker_index}"
             filename = f"{index:02d}_{_slugify(suit_part)}_{_slugify(card.value)}.jpg"
             img_buf = io.BytesIO()
-            image.save(img_buf, format="JPEG", quality=92)
+            image.save(img_buf, format="JPEG", quality=92, dpi=(overlay.PRINT_DPI, overlay.PRINT_DPI))
             zf.writestr(filename, img_buf.getvalue())
             included += 1
 
