@@ -4,17 +4,17 @@ Ce fichier sert à pré-remplir la description de chaque carte au premier démar
 
 | Valeur | Cœur | Carreau | Trèfle | Pique | Star |
 |---|---|---|---|---|---|
-| 3 | Informatique |  |  |  | Légumes |
-| 4 | Manifestation |  |  |  | Tarte |
-| 5 | Théatre |  |  |  | Ail |
-| 6 | Maison |  |  |  | Cure |
-| 7 | Poules |  |  |  | Poule |
-| 8 | Peinture |  |  |  | Pomme |
-| 9 | Accordéon |  |  |  | Citrouille |
-| 10 |  |  |  |  | Rouge gorge |
-| V | Tom |  |  |  | Minidou |
-| D | Judith |  |  |  | Barbara |
-| R | David |  |  |  | Bardard |
+| 3 | Informatique | Baigneuse | Jardinage | Bicuit de noel | Légumes |
+| 4 | Manifestation | UN corset | Cidre | Un vélo | Tarte |
+| 5 | Théatre | Danseuse rock | Drone | Requin | Ail |
+| 6 | Maison | Tulipe | Lunettes | Baleine | Cure |
+| 7 | Poules | Kangourou | Maison | Tahiti | Poule |
+| 8 | Peinture | Charlotte | Un kiné | Yoan | Pomme |
+| 9 | Accordéon | Spenceur | Mathilde | Mathilde | Citrouille |
+| 10 | Train | Madelon | Mathis | Damien | Rouge gorge |
+| V | Tom | Julien | Théo | Liv | Minidou |
+| D | Judith | Christelle | Elisabeth | Brigitte | Barbara |
+| R | David | Marteen | Christoph | Laurent | Bardard |
 
 ## Jokers
 
@@ -24,4 +24,3 @@ Ce fichier sert à pré-remplir la description de chaque carte au premier démar
 4. 
 5. 
 6. 
-
