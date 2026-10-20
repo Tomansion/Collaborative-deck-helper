@@ -113,9 +113,16 @@ def _draw_corner_badge(draw: ImageDraw.ImageDraw, xy: tuple[int, int], lines: li
     halo = (255, 255, 255, 235)
     ty = y
     for text, font in lines:
+        # Characters have different left side-bearings in the font (e.g.
+        # "J" sits further from the pen origin than "O"/"K"/"E"/"R"), so
+        # drawing every line at the same raw x misaligns the visible ink.
+        # Measure each line's actual ink box and shift so *that* -- not
+        # the font's pen origin -- lines up at x.
+        ink_left = draw.textbbox((x, ty), text, font=font, stroke_width=halo_radius)[0]
+        tx = x + (x - ink_left)
         # Pillow's native stroke draws a clean, efficient outline behind
         # the glyph so the colored text stays legible over any photo.
-        draw.text((x, ty), text, font=font, fill=color + (255,), stroke_width=halo_radius, stroke_fill=halo)
+        draw.text((tx, ty), text, font=font, fill=color + (255,), stroke_width=halo_radius, stroke_fill=halo)
         ty += font.size + 2
 
 

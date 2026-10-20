@@ -61,19 +61,29 @@
           <section v-if="detail.images.length" class="modal__section">
             <h3>Historique des images ({{ detail.images.length }})</h3>
             <div class="modal__image-history">
-              <button
+              <div
                 v-for="img in detail.images"
                 :key="img.id"
-                type="button"
                 class="modal__history-thumb"
                 :class="{ 'modal__history-thumb--current': img.is_current }"
-                :disabled="img.is_current"
+                role="button"
+                tabindex="0"
                 @click="activate(img)"
+                @keydown.enter="activate(img)"
                 :title="img.is_current ? 'Image actuelle' : 'Revenir à cette image'"
               >
                 <img :src="img.url" :alt="img.original_filename" />
                 <span v-if="img.is_current" class="modal__history-badge">Actuelle</span>
-              </button>
+                <button
+                  type="button"
+                  class="modal__history-delete"
+                  @click.stop="deleteHistoryImage(img)"
+                  title="Supprimer cette image"
+                  aria-label="Supprimer cette image"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
           </section>
         </div>
@@ -84,7 +94,7 @@
 
 <script>
 import { api } from '../api.js'
-import { store, updateDescription, uploadImage, activateImage } from '../store.js'
+import { store, updateDescription, uploadImage, activateImage, deleteImage } from '../store.js'
 
 export default {
   name: 'CardModal',
@@ -180,6 +190,18 @@ export default {
       if (img.is_current) return
       try {
         const updated = await activateImage(this.cardId, img.id)
+        this.detail = { ...this.detail, ...updated }
+      } catch (err) {
+        this.uploadError = err.message
+      }
+    },
+    async deleteHistoryImage(img) {
+      const message = img.is_current
+        ? "Cette image est actuellement utilisée sur la carte. La supprimer définitivement ?"
+        : 'Supprimer définitivement cette image ?'
+      if (!window.confirm(message)) return
+      try {
+        const updated = await deleteImage(this.cardId, img.id)
         this.detail = { ...this.detail, ...updated }
       } catch (err) {
         this.uploadError = err.message

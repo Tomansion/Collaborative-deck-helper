@@ -80,6 +80,12 @@ export async function activateImage(cardId, imageId) {
   return card
 }
 
+export async function deleteImage(cardId, imageId) {
+  const card = await api.deleteImage(cardId, imageId)
+  upsertCard(card)
+  return card
+}
+
 export function applyRealtimeMessage(message) {
   if (message.type === 'card_updated') {
     upsertCard(message.card)

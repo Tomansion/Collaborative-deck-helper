@@ -208,3 +208,45 @@ async def activate_image(card_id: int, image_id: int, db: Session = Depends(get_
         }
     )
     return result
+
+
+@router.delete("/cards/{card_id}/images/{image_id}", response_model=schemas.CardDetailOut)
+async def delete_image(card_id: int, image_id: int, db: Session = Depends(get_db)) -> schemas.CardDetailOut:
+    card = _get_card_or_404(db, card_id)
+    target = db.get(Image, image_id)
+    if target is None or target.card_id != card.id:
+        raise HTTPException(status_code=404, detail="Image introuvable pour cette carte")
+
+    was_current = target.is_current
+    filename = target.filename
+
+    db.delete(target)
+    db.flush()  # so card.images below no longer includes it
+
+    if was_current:
+        remaining = sorted(card.images, key=lambda i: i.uploaded_at, reverse=True)
+        if remaining:
+            remaining[0].is_current = True
+
+    db.commit()
+    db.refresh(card)
+
+    # Best-effort: the DB row is already gone either way, so a missing or
+    # locked file on disk shouldn't turn into a 500 for the user.
+    try:
+        (config.UPLOADS_DIR / filename).unlink(missing_ok=True)
+    except OSError:
+        pass
+
+    summary = f"Image supprimée pour « {card.label} »"
+    entry = _log_history(db, card, "image", summary)
+
+    result = _to_card_detail(card)
+    await manager.broadcast(
+        {
+            "type": "card_updated",
+            "card": result.model_dump(mode="json"),
+            "history_entry": schemas.HistoryEntryOut.model_validate(entry).model_dump(mode="json"),
+        }
+    )
+    return result

@@ -47,6 +47,11 @@ export const api = {
       method: 'PUT',
     })
   },
+  deleteImage(cardId, imageId) {
+    return request(`/api/cards/${cardId}/images/${imageId}`, {
+      method: 'DELETE',
+    })
+  },
   exportZipUrl(includeMissing = false) {
     return `/api/export/zip${includeMissing ? '?include_missing=true' : ''}`
   },
