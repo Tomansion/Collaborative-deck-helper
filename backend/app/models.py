@@ -9,7 +9,14 @@ from .database import Base
 
 
 def utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    # Naive UTC on purpose: SQLite has no real timezone-aware storage, so a
+    # round-tripped value always comes back naive. Generating naive values
+    # here too keeps every datetime consistent (avoids "can't compare
+    # offset-naive and offset-aware datetimes" once a session mixes a
+    # freshly-created, not-yet-reloaded object with one read back from the
+    # DB -- which happens with expire_on_commit=False). The API layer
+    # treats these as UTC explicitly when serializing (see schemas.py).
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class Card(Base):

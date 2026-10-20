@@ -1,8 +1,17 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, PlainSerializer
+
+# All datetimes are stored naive in the DB but always *mean* UTC (see
+# models.utcnow). Serialize them with an explicit UTC offset so the
+# frontend's `new Date(...)` never misinterprets them as local time.
+UtcDateTime = Annotated[
+    datetime,
+    PlainSerializer(lambda dt: dt.replace(tzinfo=timezone.utc).isoformat(), return_type=str, when_used="json"),
+]
 
 
 class SuitOut(BaseModel):
@@ -18,7 +27,7 @@ class ImageOut(BaseModel):
     id: int
     url: str
     original_filename: str
-    uploaded_at: datetime
+    uploaded_at: UtcDateTime
     is_current: bool
 
 
@@ -53,7 +62,7 @@ class HistoryEntryOut(BaseModel):
     card_label: str
     change_type: str
     summary: str
-    created_at: datetime
+    created_at: UtcDateTime
 
 
 class DeckOut(BaseModel):
