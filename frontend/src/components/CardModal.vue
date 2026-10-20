@@ -53,7 +53,7 @@
             >
               <input type="file" accept="image/*" class="modal__file-input" @change="onFileChange" />
               <span v-if="uploading">Envoi en cours…</span>
-              <span v-else>Glissez une image ici, ou cliquez pour en choisir une</span>
+              <span v-else>Glissez une image ici, collez-la (Ctrl+V), ou cliquez pour en choisir une</span>
             </label>
             <p v-if="uploadError" class="modal__error">{{ uploadError }}</p>
           </section>
@@ -139,10 +139,30 @@ export default {
       },
     },
   },
+  mounted() {
+    window.addEventListener('paste', this.onPaste)
+  },
   beforeUnmount() {
+    window.removeEventListener('paste', this.onPaste)
     if (this.saveTimer) clearTimeout(this.saveTimer)
   },
   methods: {
+    onPaste(event) {
+      const items = event.clipboardData?.items
+      if (!items) return
+      for (const item of items) {
+        if (item.type && item.type.startsWith('image/')) {
+          const file = item.getAsFile()
+          if (file) {
+            event.preventDefault()
+            this.doUpload(file)
+          }
+          return
+        }
+      }
+      // No image in the clipboard (e.g. plain text): let the default
+      // paste behavior happen, such as pasting text into the description.
+    },
     scheduleSave() {
       this.saveState = 'idle'
       if (this.saveTimer) clearTimeout(this.saveTimer)
