@@ -6,7 +6,6 @@
       <p v-if="!entries.length" class="modal__hint">Aucune modification pour le moment.</p>
       <ul v-else class="history-list">
         <li v-for="entry in entries" :key="entry.id" class="history-list__item">
-          <span class="history-list__icon">{{ entry.change_type === 'image' ? '🖼️' : '✏️' }}</span>
           <div>
             <p class="history-list__summary">{{ entry.summary }}</p>
             <p class="history-list__date">{{ formatDate(entry.created_at) }}</p>
